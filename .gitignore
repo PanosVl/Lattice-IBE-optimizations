@@ -1,3 +1,5 @@
 *.code-workspace
 outputs/
-./IBE
+
+IBE
+*.o
