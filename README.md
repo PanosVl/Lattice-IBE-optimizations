@@ -18,6 +18,11 @@ $ make
 $ ./IBE
 ```
 
+There's an updated version that also displays CPU-time percentages. To run it, use:
+```
+$ ./run_timing.sh
+```
+
 If GMP and NTL are not in a standard directory, you have to modify the CCFLAGS and LDFLAGS in the Makefile to indicate where they are.
 
 

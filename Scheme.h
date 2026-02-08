@@ -21,4 +21,8 @@ void Encrypt_Bench(const unsigned int nb_cryp, MPK_Data * MPKD, MSK_Data * MSKD)
 void Extract_Test(const unsigned int nb_extr, MSK_Data * MSKD);
 void Encrypt_Test(const unsigned int nb_cryp, MPK_Data * MPKD, MSK_Data * MSKD);
 
+// Timing profiling functions
+void print_timing_stats();
+void reset_timing_stats();
+
 #endif

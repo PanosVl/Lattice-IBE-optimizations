@@ -151,6 +151,9 @@ int main()
     cout << nb_extrt << " DIFFERENT MESSAGES\n===================================================================\n";
     Encrypt_Test(nb_crypt, MPKD, MSKD);
 
+    // Print timing statistics collected during execution
+    print_timing_stats();
+
     free(MSKD);
     free(MPKD);
     return 0;
