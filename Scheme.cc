@@ -12,6 +12,7 @@
 #include "Sampling.h"
 #include "params.h"
 #include "FFT.h"
+#include "FFT_Interface.h"
 #include "Random.h"
 #include "Algebra.h"
 
@@ -297,7 +298,7 @@ void CompleteMSK(MSK_Data * MSKD, ZZX * MSK)
 void CompleteMPK(MPK_Data * MPKD, ZZ_pX MPK)
 {
     MPKD->h = MPK;
-    ZZXToFFT(MPKD->h_FFT, conv<ZZX>(MPK));
+    FFT_Interface_ZZXToFFT(MPKD->h_FFT, conv<ZZX>(MPK));
 }
 
 
@@ -383,8 +384,8 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
 
     auto fft_start = chrono::high_resolution_clock::now();
-    MyIntFFT(r_FFT, r);
-    MyIntFFT(t_FFT, id0);
+    FFT_Interface_IntToFFT(r_FFT, r);
+    FFT_Interface_IntToFFT(t_FFT, id0);
     auto fft_end = chrono::high_resolution_clock::now();
     chrono::duration<double> fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();
@@ -397,8 +398,8 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
 
     fft_start = chrono::high_resolution_clock::now();
-    MyIntReverseFFT(C[0], aux1_FFT);
-    MyIntReverseFFT(C[1], aux2_FFT);
+    FFT_Interface_FFTToInt(C[0], aux1_FFT);
+    FFT_Interface_FFTToInt(C[1], aux2_FFT);
     fft_end = chrono::high_resolution_clock::now();
     fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();
@@ -430,7 +431,7 @@ void IBE_Decrypt(long message[N0], const long C[2][N0], const CC_t * const SKid_
     CC_t c0_FFT[N0], aux_FFT[N0];
 
     auto fft_start = chrono::high_resolution_clock::now();
-    MyIntFFT(c0_FFT, C[0]);
+    FFT_Interface_IntToFFT(c0_FFT, C[0]);
     auto fft_end = chrono::high_resolution_clock::now();
     chrono::duration<double> fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();
@@ -442,7 +443,7 @@ void IBE_Decrypt(long message[N0], const long C[2][N0], const CC_t * const SKid_
     }
 
     fft_start = chrono::high_resolution_clock::now();
-    MyIntReverseFFT(message, aux_FFT);
+    FFT_Interface_FFTToInt(message, aux_FFT);
     fft_end = chrono::high_resolution_clock::now();
     fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();
@@ -521,7 +522,7 @@ void Encrypt_Bench(const unsigned int nb_cryp, MPK_Data * MPKD, MSK_Data * MSKD)
     id = RandomVector();
     IBE_Extract(SK_id, id, MSKD);
     IBE_Verify_Key(SK_id, id, MSKD);
-    ZZXToFFT(SKid_FFT, SK_id[1]);
+    FFT_Interface_ZZXToFFT(SKid_FFT, SK_id[1]);
     for(i=0; i<N0; i++)
     {
         identity[i] = conv<long int>(id[i]);
@@ -597,7 +598,7 @@ void Encrypt_Test(const unsigned int nb_cryp, MPK_Data * MPKD, MSK_Data * MSKD)
     id = RandomVector();
     IBE_Extract(SK_id, id, MSKD);
     IBE_Verify_Key(SK_id, id, MSKD);
-    ZZXToFFT(SKid_FFT, SK_id[1]);
+    FFT_Interface_ZZXToFFT(SKid_FFT, SK_id[1]);
 
     rep = 0;
 

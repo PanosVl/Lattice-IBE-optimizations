@@ -11,6 +11,7 @@
 #include "Algebra.h"
 #include "params.h"
 #include "FFT.h"
+#include "FFT_Interface.h"
 #include "Random.h"
 
 using namespace std;
@@ -135,16 +136,16 @@ ZZX FastReductionCoefficient(const ZZX& f, const ZZX& g, const ZZX& F, const ZZX
     CC_t f_FFT[N0], g_FFT[N0], F_FFT[N0], G_FFT[N0], num_FFT[N0], den_FFT[N0], k_FFT[N0];
 
     assert(MaxBits(f)<900);
-    ZZXToFFT(f_FFT, f);
+    FFT_Interface_ZZXToFFT(f_FFT, f);
 
     assert(MaxBits(g)<900);
-    ZZXToFFT(g_FFT, g);
+    FFT_Interface_ZZXToFFT(g_FFT, g);
 
     assert(MaxBits(F)<900);
-    ZZXToFFT(F_FFT, F);
+    FFT_Interface_ZZXToFFT(F_FFT, F);
 
     assert(MaxBits(G)<900);
-    ZZXToFFT(G_FFT, G);
+    FFT_Interface_ZZXToFFT(G_FFT, G);
 
     for(i=0; i<N0; i++)
     {
@@ -153,7 +154,7 @@ ZZX FastReductionCoefficient(const ZZX& f, const ZZX& g, const ZZX& F, const ZZX
         k_FFT[i] = num_FFT[i]/den_FFT[i];
     }
 
-    FFTToZZX(k, k_FFT);
+    FFT_Interface_FFTToZZX(k, k_FFT);
     return k;
 }
 
@@ -288,16 +289,16 @@ void GS_Norm(const ZZX fx, const ZZX gx, int& flag)
     }
     acc = sqrt(acc);
 
-    ZZXToFFT(f, fx);
-    ZZXToFFT(g, gx);
+    FFT_Interface_ZZXToFFT(f, fx);
+    FFT_Interface_ZZXToFFT(g, gx);
 
     for(i=0; i<N0; i++)
     {
         F[i] = f[i]/(f[i]*f[N0-1-i]+g[i]*g[N0-1-i]);
         G[i] = g[i]/(f[i]*f[N0-1-i]+g[i]*g[N0-1-i]);
     }
-    MyRealReverseFFT(Fred, F);
-    MyRealReverseFFT(Gred, G);
+    FFT_Interface_FFTToReal(Fred, F);
+    FFT_Interface_FFTToReal(Gred, G);
 
     acc3 = 0;
     for(i=0; i<N0; i++)
