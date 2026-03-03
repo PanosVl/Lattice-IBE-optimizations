@@ -95,7 +95,9 @@ void print_timing_stats() {
             cout << "  Mod Arith:     " << g_modarith_time << "s (" << g_modarith_count << " calls, " 
                  << modarith_pct << "% of total)" << endl;
         }
-        double accounted_time = g_fft_time + g_sampling_time + g_basis_gen_time + g_quotient_time + g_gpv_overhead_time + g_modarith_time;
+        // Note: basis_gen, quotient, and gpv_overhead are sub-components of keygen/extract,
+        // so we only subtract the independent components (FFT, sampling, mod_arith) from total
+        double accounted_time = g_fft_time + g_sampling_time + g_modarith_time;
         double other_time = total_time - accounted_time;
         double other_pct = (other_time / total_time) * 100.0;
         cout << "  Other:         " << other_time << "s (" << other_pct << "% of total)" << endl;
