@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "FFT_Interface.h"
+#include "FFT_CUDA_Backend.h"
 #include "FFT.h"
 #include "params.h"
 
@@ -22,11 +23,15 @@ static bool g_in_batch = false;
 
 int FFT_Interface_Init(FFT_Backend_Type backend) {
     if (backend == FFT_BACKEND_GPU) {
-        // GPU backend not yet implemented
-        cerr << "Warning: GPU backend not yet available, falling back to CPU" << endl;
+        if (FFT_CUDA_Init() == 0) {
+            g_current_backend = FFT_BACKEND_GPU;
+            g_initialized = true;
+            return 0;
+        }
+        cerr << "Warning: GPU backend initialization failed, falling back to CPU" << endl;
         g_current_backend = FFT_BACKEND_CPU;
         g_initialized = true;
-        return 1; // Indicate fallback
+        return 1;
     }
     
     g_current_backend = backend;
@@ -36,7 +41,7 @@ int FFT_Interface_Init(FFT_Backend_Type backend) {
 
 void FFT_Interface_Cleanup() {
     if (g_current_backend == FFT_BACKEND_GPU) {
-        // Cleanup GPU resources (to be implemented)
+        FFT_CUDA_Cleanup();
     }
     g_initialized = false;
 }
@@ -49,8 +54,7 @@ int FFT_Interface_IsBackendAvailable(FFT_Backend_Type backend) {
     if (backend == FFT_BACKEND_CPU) {
         return 1; // CPU always available
     } else if (backend == FFT_BACKEND_GPU) {
-        // Check for CUDA/GPU availability (to be implemented)
-        return 0;
+        return FFT_CUDA_IsAvailable();
     }
     return 0;
 }
@@ -83,9 +87,10 @@ void FFT_Interface_IntToFFT(CC_t * f_FFT, const long int * const f) {
     if (g_current_backend == FFT_BACKEND_CPU) {
         MyIntFFT(f_FFT, f);
     } else {
-        // GPU implementation would go here
-        cerr << "Error: GPU backend called but not implemented" << endl;
-        abort();
+        if (FFT_CUDA_IntToFFT(f_FFT, f) != 0) {
+            cerr << "Warning: GPU IntToFFT failed, using CPU implementation" << endl;
+            MyIntFFT(f_FFT, f);
+        }
     }
 }
 
@@ -97,9 +102,10 @@ void FFT_Interface_FFTToInt(long int * const f, CC_t const * const f_fft) {
     if (g_current_backend == FFT_BACKEND_CPU) {
         MyIntReverseFFT(f, f_fft);
     } else {
-        // GPU implementation would go here
-        cerr << "Error: GPU backend called but not implemented" << endl;
-        abort();
+        if (FFT_CUDA_FFTToInt(f, f_fft) != 0) {
+            cerr << "Warning: GPU FFTToInt failed, using CPU implementation" << endl;
+            MyIntReverseFFT(f, f_fft);
+        }
     }
 }
 
@@ -111,9 +117,10 @@ void FFT_Interface_FFTToReal(double * const f, CC_t const * const f_fft) {
     if (g_current_backend == FFT_BACKEND_CPU) {
         MyRealReverseFFT(f, f_fft);
     } else {
-        // GPU implementation would go here
-        cerr << "Error: GPU backend called but not implemented" << endl;
-        abort();
+        if (FFT_CUDA_FFTToReal(f, f_fft) != 0) {
+            cerr << "Warning: GPU FFTToReal failed, using CPU implementation" << endl;
+            MyRealReverseFFT(f, f_fft);
+        }
     }
 }
 
@@ -125,9 +132,8 @@ void FFT_Interface_ZZXToFFT(CC_t * f_FFT, const ZZX f) {
     if (g_current_backend == FFT_BACKEND_CPU) {
         ZZXToFFT(f_FFT, f);
     } else {
-        // GPU implementation would go here
-        cerr << "Error: GPU backend called but not implemented" << endl;
-        abort();
+        // Current CUDA path supports integer/real transforms only; keep semantic parity.
+        ZZXToFFT(f_FFT, f);
     }
 }
 
@@ -139,8 +145,7 @@ void FFT_Interface_FFTToZZX(ZZX& f, CC_t const * const f_FFT) {
     if (g_current_backend == FFT_BACKEND_CPU) {
         FFTToZZX(f, f_FFT);
     } else {
-        // GPU implementation would go here
-        cerr << "Error: GPU backend called but not implemented" << endl;
-        abort();
+        // Current CUDA path supports integer/real transforms only; keep semantic parity.
+        FFTToZZX(f, f_FFT);
     }
 }
