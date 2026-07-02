@@ -61,3 +61,4 @@ make clean && make
 - The instrumentation has minimal overhead as timers are only called at function boundaries
 - Sampling timing is measured at the innermost loop level in GPV() where Sample4() is called
 - FFT timing measures both forward and reverse FFT operations separately
+- The printed percentage breakdown is phase-local for nested timers, so the detailed sections are meant to be read within their own parent phase rather than summed across the whole report
