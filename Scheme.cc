@@ -46,61 +46,77 @@ static long long g_modarith_count = 0;
 void print_timing_stats() {
     cout << "\n=== IBE Performance Statistics ===" << endl;
     if (g_keygen_count > 0) {
-        cout << "Keygen:    " << g_keygen_time << "s (" << g_keygen_count << " calls, avg: " 
-             << (g_keygen_time / g_keygen_count * 1000) << "ms)" << endl;
+       cout << "Keygen:    " << g_keygen_time << "s (" << g_keygen_count << " calls, avg: " 
+           << (g_keygen_time / g_keygen_count * 1000) << "ms, " 
+           << ((g_keygen_time / (g_keygen_time + g_extract_time + g_encrypt_time + g_decrypt_time)) * 100.0)
+           << "% of total)" << endl;
     }
     if (g_extract_count > 0) {
-        cout << "Extract:   " << g_extract_time << "s (" << g_extract_count << " calls, avg: " 
-             << (g_extract_time / g_extract_count * 1000) << "ms)" << endl;
+       cout << "Extract:   " << g_extract_time << "s (" << g_extract_count << " calls, avg: " 
+           << (g_extract_time / g_extract_count * 1000) << "ms, " 
+           << ((g_extract_time / (g_keygen_time + g_extract_time + g_encrypt_time + g_decrypt_time)) * 100.0)
+           << "% of total)" << endl;
     }
     if (g_encrypt_count > 0) {
-        cout << "Encrypt:   " << g_encrypt_time << "s (" << g_encrypt_count << " calls, avg: " 
-             << (g_encrypt_time / g_encrypt_count * 1000) << "ms)" << endl;
+       cout << "Encrypt:   " << g_encrypt_time << "s (" << g_encrypt_count << " calls, avg: " 
+           << (g_encrypt_time / g_encrypt_count * 1000) << "ms, " 
+           << ((g_encrypt_time / (g_keygen_time + g_extract_time + g_encrypt_time + g_decrypt_time)) * 100.0)
+           << "% of total)" << endl;
     }
     if (g_decrypt_count > 0) {
-        cout << "Decrypt:   " << g_decrypt_time << "s (" << g_decrypt_count << " calls, avg: " 
-             << (g_decrypt_time / g_decrypt_count * 1000) << "ms)" << endl;
+       cout << "Decrypt:   " << g_decrypt_time << "s (" << g_decrypt_count << " calls, avg: " 
+           << (g_decrypt_time / g_decrypt_count * 1000) << "ms, " 
+           << ((g_decrypt_time / (g_keygen_time + g_extract_time + g_encrypt_time + g_decrypt_time)) * 100.0)
+           << "% of total)" << endl;
     }
     
     double total_time = g_keygen_time + g_extract_time + g_encrypt_time + g_decrypt_time;
     if (total_time > 0) {
         cout << "\nDetailed Breakdown:" << endl;
-        if (g_fft_count > 0) {
-            double fft_pct = (g_fft_time / total_time) * 100.0;
-            cout << "  FFT:           " << g_fft_time << "s (" << g_fft_count << " calls, " 
-                 << fft_pct << "% of total)" << endl;
+       if (g_keygen_time > 0) {
+          double keygen_remaining = g_keygen_time - g_basis_gen_time - g_quotient_time;
+          if (keygen_remaining < 0.0) {
+             keygen_remaining = 0.0;
+          }
+          cout << "  Keygen:" << endl;
+          cout << "    Basis Gen:   " << g_basis_gen_time << "s (" << (g_basis_gen_time / g_keygen_time) * 100.0
+              << "% of keygen, " << (g_basis_gen_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    Quotient:    " << g_quotient_time << "s (" << (g_quotient_time / g_keygen_time) * 100.0
+              << "% of keygen, " << (g_quotient_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    Other:       " << keygen_remaining << "s (" << (keygen_remaining / g_keygen_time) * 100.0
+              << "% of keygen, " << (keygen_remaining / total_time) * 100.0 << "% of total)" << endl;
         }
-        if (g_sampling_count > 0) {
-            double sampling_pct = (g_sampling_time / total_time) * 100.0;
-            cout << "  Sampling:      " << g_sampling_time << "s (" << g_sampling_count << " calls, " 
-                 << sampling_pct << "% of total)" << endl;
+       if (g_extract_time > 0) {
+          double extract_remaining = g_extract_time - g_sampling_time - g_gpv_overhead_time;
+          if (extract_remaining < 0.0) {
+             extract_remaining = 0.0;
+          }
+          cout << "  Extract:" << endl;
+          cout << "    Sampling:    " << g_sampling_time << "s (" << g_sampling_count << " calls, " 
+              << (g_sampling_time / g_extract_time) * 100.0 << "% of extract, "
+              << (g_sampling_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    GPV Overhead: " << g_gpv_overhead_time << "s (" << g_gpv_overhead_count << " calls, " 
+              << (g_gpv_overhead_time / g_extract_time) * 100.0 << "% of extract, "
+              << (g_gpv_overhead_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    Other:       " << extract_remaining << "s (" << (extract_remaining / g_extract_time) * 100.0
+              << "% of extract, " << (extract_remaining / total_time) * 100.0 << "% of total)" << endl;
         }
-        if (g_basis_gen_count > 0) {
-            double basis_pct = (g_basis_gen_time / total_time) * 100.0;
-            cout << "  Basis Gen:     " << g_basis_gen_time << "s (" << g_basis_gen_count << " calls, " 
-                 << basis_pct << "% of total)" << endl;
+       if ((g_encrypt_time + g_decrypt_time) > 0) {
+          double crypto_time = g_encrypt_time + g_decrypt_time;
+          double crypto_remaining = crypto_time - g_fft_time - g_modarith_time;
+          if (crypto_remaining < 0.0) {
+             crypto_remaining = 0.0;
+          }
+          cout << "  Encrypt+Decrypt:" << endl;
+          cout << "    FFT:         " << g_fft_time << "s (" << g_fft_count << " calls, " 
+              << (g_fft_time / crypto_time) * 100.0 << "% of encrypt+decrypt, "
+              << (g_fft_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    Mod Arith:   " << g_modarith_time << "s (" << g_modarith_count << " calls, " 
+              << (g_modarith_time / crypto_time) * 100.0 << "% of encrypt+decrypt, "
+              << (g_modarith_time / total_time) * 100.0 << "% of total)" << endl;
+          cout << "    Other:       " << crypto_remaining << "s (" << (crypto_remaining / crypto_time) * 100.0
+              << "% of encrypt+decrypt, " << (crypto_remaining / total_time) * 100.0 << "% of total)" << endl;
         }
-        if (g_quotient_count > 0) {
-            double quotient_pct = (g_quotient_time / total_time) * 100.0;
-            cout << "  Quotient:      " << g_quotient_time << "s (" << g_quotient_count << " calls, " 
-                 << quotient_pct << "% of total)" << endl;
-        }
-        if (g_gpv_overhead_count > 0) {
-            double gpv_pct = (g_gpv_overhead_time / total_time) * 100.0;
-            cout << "  GPV Overhead:  " << g_gpv_overhead_time << "s (" << g_gpv_overhead_count << " calls, " 
-                 << gpv_pct << "% of total)" << endl;
-        }
-        if (g_modarith_count > 0) {
-            double modarith_pct = (g_modarith_time / total_time) * 100.0;
-            cout << "  Mod Arith:     " << g_modarith_time << "s (" << g_modarith_count << " calls, " 
-                 << modarith_pct << "% of total)" << endl;
-        }
-        // Note: basis_gen, quotient, and gpv_overhead are sub-components of keygen/extract,
-        // so we only subtract the independent components (FFT, sampling, mod_arith) from total
-        double accounted_time = g_fft_time + g_sampling_time + g_modarith_time;
-        double other_time = total_time - accounted_time;
-        double other_pct = (other_time / total_time) * 100.0;
-        cout << "  Other:         " << other_time << "s (" << other_pct << "% of total)" << endl;
         cout << "\nTotal:     " << total_time << "s" << endl;
     }
     cout << "=================================\n" << endl;
