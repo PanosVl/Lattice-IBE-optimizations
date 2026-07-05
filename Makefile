@@ -3,10 +3,22 @@ CC=g++
 NVCC=nvcc
 AR=ar
 USE_CUDA?=0
+USE_KELVIN2?=0
 
 # Case 1: These are the standard compilation flags CCFLAGS and linker flags LDFLAGS.
 CCFLAGS= -Wall -std=gnu++0x -Ofast 
 LDFLAGS= -lntl -lgmp 
+
+ifeq ($(USE_KELVIN2),1)
+SWDIR = /users/$(USER)/sw
+CCFLAGS = -Wall -std=c++17 -Ofast \
+		  -I$(SWDIR)/ntl/include \
+		  -I$(SWDIR)/gmp/include \
+		  -pthread
+LDFLAGS = -L$(SWDIR)/ntl/lib \
+		  -L$(SWDIR)/gmp/lib \
+		  -lntl -lgmp -pthread
+endif
 
 # Case 2: If NTL is installed in a specific location, say /path/to/ntl, you must specify it by using the CCFLAGS and LDFLAGS below instead.
 # CCFLAGS= -Wall -I/path/to/ntl/include/ -std=gnu++0x -Ofast 
