@@ -20,6 +20,8 @@ struct CUDA_State {
 
 static CUDA_State g_cuda_state = {false, 0, 0, 0, 0};
 
+static const unsigned int kCudaThreadsPerBlock = 256;
+
 __global__ void KernelIntToComplex(cufftDoubleComplex * out, const long int * in) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < N0) {
@@ -42,6 +44,36 @@ int CheckCuda(cudaError_t err) {
 
 int CheckCufft(cufftResult err) {
     return (err == CUFFT_SUCCESS) ? 0 : 1;
+}
+
+unsigned int BlockCountForN0() {
+    return (N0 + kCudaThreadsPerBlock - 1) / kCudaThreadsPerBlock;
+}
+
+int CopyIntInputToDevice(const long int * const f) {
+    return CheckCuda(cudaMemcpy(g_cuda_state.d_input_int, f, sizeof(long int) * N0, cudaMemcpyHostToDevice));
+}
+
+int ConvertDeviceIntsToComplex() {
+    KernelIntToComplex<<<BlockCountForN0(), kCudaThreadsPerBlock>>>(g_cuda_state.d_freq, g_cuda_state.d_input_int);
+    return CheckCuda(cudaGetLastError());
+}
+
+int ExecuteForwardFFT() {
+    return CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_FORWARD));
+}
+
+int CopyFreqToHost(CC_t * const f_FFT) {
+    std::vector<cufftDoubleComplex> freq_host(N0);
+    if (CheckCuda(cudaMemcpy(&freq_host[0], g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
+        return 1;
+    }
+
+    for (unsigned int i = 0; i < N0; ++i) {
+        f_FFT[i] = CC_t((RR_t)freq_host[i].x, (RR_t)freq_host[i].y);
+    }
+
+    return 0;
 }
 
 } // namespace
@@ -134,28 +166,20 @@ int FFT_CUDA_Impl_IntToFFT(CC_t * f_FFT, const long int * const f) {
         return 1;
     }
 
-    if (CheckCuda(cudaMemcpy(g_cuda_state.d_input_int, f, sizeof(long int) * N0, cudaMemcpyHostToDevice)) != 0) {
+    if (CopyIntInputToDevice(f) != 0) {
         return 1;
     }
 
-    unsigned int threads = 256;
-    unsigned int blocks = (N0 + threads - 1) / threads;
-    KernelIntToComplex<<<blocks, threads>>>(g_cuda_state.d_freq, g_cuda_state.d_input_int);
-    if (CheckCuda(cudaGetLastError()) != 0) {
+    if (ConvertDeviceIntsToComplex() != 0) {
         return 1;
     }
 
-    if (CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_FORWARD)) != 0) {
+    if (ExecuteForwardFFT() != 0) {
         return 1;
     }
 
-    std::vector<cufftDoubleComplex> freq_host(N0);
-    if (CheckCuda(cudaMemcpy(&freq_host[0], g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
+    if (CopyFreqToHost(f_FFT) != 0) {
         return 1;
-    }
-
-    for (unsigned int i = 0; i < N0; ++i) {
-        f_FFT[i] = CC_t((RR_t)freq_host[i].x, (RR_t)freq_host[i].y);
     }
 
     return 0;
@@ -181,9 +205,7 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
     }
 
     double scale = 1.0 / (double)N0;
-    unsigned int threads = 256;
-    unsigned int blocks = (N0 + threads - 1) / threads;
-    KernelScaleInverse<<<blocks, threads>>>(g_cuda_state.d_freq, scale);
+    KernelScaleInverse<<<BlockCountForN0(), kCudaThreadsPerBlock>>>(g_cuda_state.d_freq, scale);
     if (CheckCuda(cudaGetLastError()) != 0) {
         return 1;
     }
@@ -219,9 +241,7 @@ int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
     }
 
     double scale = 1.0 / (double)N0;
-    unsigned int threads = 256;
-    unsigned int blocks = (N0 + threads - 1) / threads;
-    KernelScaleInverse<<<blocks, threads>>>(g_cuda_state.d_freq, scale);
+    KernelScaleInverse<<<BlockCountForN0(), kCudaThreadsPerBlock>>>(g_cuda_state.d_freq, scale);
     if (CheckCuda(cudaGetLastError()) != 0) {
         return 1;
     }
