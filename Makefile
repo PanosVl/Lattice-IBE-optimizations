@@ -4,20 +4,27 @@ NVCC=nvcc
 AR=ar
 USE_CUDA?=0
 USE_KELVIN2?=0
+CXX_STD ?= gnu++0x
+CUDA_STD ?= c++11
+CUDA_HOST_COMPILER ?= $(CC)
 
 # Case 1: These are the standard compilation flags CCFLAGS and linker flags LDFLAGS.
-CCFLAGS= -Wall -std=gnu++0x -Ofast 
+CCFLAGS= -Wall -std=$(CXX_STD) -Ofast 
 LDFLAGS= -lntl -lgmp 
 
 ifeq ($(USE_KELVIN2),1)
 SWDIR = /users/$(USER)/sw
-CCFLAGS = -Wall -std=c++17 -Ofast \
+CXX_STD = c++17
+CUDA_STD = c++17
+CCFLAGS = -Wall -std=$(CXX_STD) -Ofast \
 		  -I$(SWDIR)/ntl/include \
 		  -I$(SWDIR)/gmp/include \
 		  -pthread
 LDFLAGS = -L$(SWDIR)/ntl/lib \
 		  -L$(SWDIR)/gmp/lib \
 		  -lntl -lgmp -pthread
+CUDA_INCLUDES = -I$(SWDIR)/ntl/include \
+			-I$(SWDIR)/gmp/include
 endif
 
 # Case 2: If NTL is installed in a specific location, say /path/to/ntl, you must specify it by using the CCFLAGS and LDFLAGS below instead.
@@ -48,7 +55,7 @@ IBE: $(OBJS)
 	$(CC) $(CCFLAGS) -c $< 
 
 FFT_CUDA_Backend_impl.o: FFT_CUDA_Backend.cu FFT_CUDA_Backend.h params.h
-	$(NVCC) -O3 -std=c++11 -DUSE_CUDA -c FFT_CUDA_Backend.cu -o FFT_CUDA_Backend_impl.o
+	$(NVCC) -O3 -std=$(CUDA_STD) -DUSE_CUDA -ccbin $(CUDA_HOST_COMPILER) $(CUDA_INCLUDES) -c FFT_CUDA_Backend.cu -o FFT_CUDA_Backend_impl.o
 
 clean:
 	rm -f *.o
