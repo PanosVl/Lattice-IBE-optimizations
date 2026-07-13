@@ -7,6 +7,11 @@ USE_KELVIN2?=0
 CXX_STD ?= gnu++0x
 CUDA_STD ?= c++11
 CUDA_HOST_COMPILER ?= $(CC)
+CUDA_HOME ?= $(shell if [ -n "$$CUDA_HOME" ]; then printf '%s\n' "$$CUDA_HOME"; elif [ -n "$$CUDA_PATH" ]; then printf '%s\n' "$$CUDA_PATH"; elif command -v nvcc >/dev/null 2>&1; then nvcc_path=$$(command -v nvcc); dirname $$(dirname "$$nvcc_path"); else printf '%s\n' /usr/local/cuda; fi)
+CUDA_LIBDIR ?= $(firstword $(wildcard $(CUDA_HOME)/lib64 $(CUDA_HOME)/lib))
+ifeq ($(CUDA_LIBDIR),)
+CUDA_LIBDIR := $(CUDA_HOME)/lib64
+endif
 
 # Case 1: These are the standard compilation flags CCFLAGS and linker flags LDFLAGS.
 CCFLAGS= -Wall -std=$(CXX_STD) -Ofast 
@@ -41,7 +46,7 @@ OBJS=$(SRCS:.cc=.o)
 ifeq ($(USE_CUDA),1)
 CCFLAGS += -DUSE_CUDA
 OBJS += FFT_CUDA_Backend_impl.o
-LDFLAGS += -lcufft -lcudart
+LDFLAGS += -L$(CUDA_LIBDIR) -lcufft -lcudart
 endif
 
 .PHONY: all clean mrproper
