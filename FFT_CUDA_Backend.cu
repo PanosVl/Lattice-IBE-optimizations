@@ -6,7 +6,6 @@
 #include <cufft.h>
 
 #include <math.h>
-#include <vector>
 
 namespace {
 
@@ -16,9 +15,10 @@ struct CUDA_State {
     cufftHandle inverse_plan;
     long int * d_input_int;
     cufftDoubleComplex * d_freq;
+    cufftDoubleComplex * h_freq;
 };
 
-static CUDA_State g_cuda_state = {false, 0, 0, 0, 0};
+static CUDA_State g_cuda_state = {false, 0, 0, 0, 0, 0};
 
 static const unsigned int kCudaThreadsPerBlock = 256;
 
@@ -64,13 +64,12 @@ int ExecuteForwardFFT() {
 }
 
 int CopyFreqToHost(CC_t * const f_FFT) {
-    std::vector<cufftDoubleComplex> freq_host(N0);
-    if (CheckCuda(cudaMemcpy(&freq_host[0], g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
+    if (CheckCuda(cudaMemcpy(g_cuda_state.h_freq, g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
         return 1;
     }
 
     for (unsigned int i = 0; i < N0; ++i) {
-        f_FFT[i] = CC_t((RR_t)freq_host[i].x, (RR_t)freq_host[i].y);
+        f_FFT[i] = CC_t((RR_t)g_cuda_state.h_freq[i].x, (RR_t)g_cuda_state.h_freq[i].y);
     }
 
     return 0;
@@ -123,6 +122,11 @@ int FFT_CUDA_Impl_Init() {
         return 1;
     }
 
+    if (CheckCuda(cudaMallocHost((void **)&g_cuda_state.h_freq, sizeof(cufftDoubleComplex) * N0)) != 0) {
+        FFT_CUDA_Impl_Cleanup();
+        return 1;
+    }
+
     if (CheckCufft(cufftPlan1d(&g_cuda_state.forward_plan, N0, CUFFT_Z2Z, 1)) != 0) {
         FFT_CUDA_Impl_Cleanup();
         return 1;
@@ -158,6 +162,11 @@ void FFT_CUDA_Impl_Cleanup() {
         g_cuda_state.d_freq = 0;
     }
 
+    if (g_cuda_state.h_freq != 0) {
+        cudaFreeHost(g_cuda_state.h_freq);
+        g_cuda_state.h_freq = 0;
+    }
+
     g_cuda_state.initialized = false;
 }
 
@@ -190,13 +199,12 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    std::vector<cufftDoubleComplex> freq_host(N0);
     for (unsigned int i = 0; i < N0; ++i) {
-        freq_host[i].x = (double)real(f_fft[i]);
-        freq_host[i].y = (double)imag(f_fft[i]);
+        g_cuda_state.h_freq[i].x = (double)real(f_fft[i]);
+        g_cuda_state.h_freq[i].y = (double)imag(f_fft[i]);
     }
 
-    if (CheckCuda(cudaMemcpy(g_cuda_state.d_freq, &freq_host[0], sizeof(cufftDoubleComplex) * N0, cudaMemcpyHostToDevice)) != 0) {
+    if (CheckCuda(cudaMemcpy(g_cuda_state.d_freq, g_cuda_state.h_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyHostToDevice)) != 0) {
         return 1;
     }
 
@@ -210,12 +218,12 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    if (CheckCuda(cudaMemcpy(&freq_host[0], g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
+    if (CheckCuda(cudaMemcpy(g_cuda_state.h_freq, g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
         return 1;
     }
 
     for (unsigned int i = 0; i < N0; ++i) {
-        f[i] = (long int)llround(freq_host[i].x);
+        f[i] = (long int)llround(g_cuda_state.h_freq[i].x);
     }
 
     return 0;
@@ -226,13 +234,12 @@ int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    std::vector<cufftDoubleComplex> freq_host(N0);
     for (unsigned int i = 0; i < N0; ++i) {
-        freq_host[i].x = (double)real(f_fft[i]);
-        freq_host[i].y = (double)imag(f_fft[i]);
+        g_cuda_state.h_freq[i].x = (double)real(f_fft[i]);
+        g_cuda_state.h_freq[i].y = (double)imag(f_fft[i]);
     }
 
-    if (CheckCuda(cudaMemcpy(g_cuda_state.d_freq, &freq_host[0], sizeof(cufftDoubleComplex) * N0, cudaMemcpyHostToDevice)) != 0) {
+    if (CheckCuda(cudaMemcpy(g_cuda_state.d_freq, g_cuda_state.h_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyHostToDevice)) != 0) {
         return 1;
     }
 
@@ -246,12 +253,12 @@ int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    if (CheckCuda(cudaMemcpy(&freq_host[0], g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
+    if (CheckCuda(cudaMemcpy(g_cuda_state.h_freq, g_cuda_state.d_freq, sizeof(cufftDoubleComplex) * N0, cudaMemcpyDeviceToHost)) != 0) {
         return 1;
     }
 
     for (unsigned int i = 0; i < N0; ++i) {
-        f[i] = freq_host[i].x;
+        f[i] = g_cuda_state.h_freq[i].x;
     }
 
     return 0;
