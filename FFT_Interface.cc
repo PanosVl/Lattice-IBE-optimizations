@@ -94,6 +94,29 @@ void FFT_Interface_IntToFFT(CC_t * f_FFT, const long int * const f) {
     }
 }
 
+void FFT_Interface_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigned int batch_count) {
+    if (!g_initialized) {
+        FFT_Interface_Init(FFT_BACKEND_CPU);
+    }
+
+    if (batch_count == 0) {
+        return;
+    }
+
+    if (g_current_backend == FFT_BACKEND_CPU) {
+        for (unsigned int i = 0; i < batch_count; ++i) {
+            MyIntFFT(f_FFT + i * N0, f + i * N0);
+        }
+    } else {
+        if (FFT_CUDA_IntToFFT_Batch(f_FFT, f, batch_count) != 0) {
+            cerr << "Warning: GPU IntToFFT batch failed, using CPU implementation" << endl;
+            for (unsigned int i = 0; i < batch_count; ++i) {
+                MyIntFFT(f_FFT + i * N0, f + i * N0);
+            }
+        }
+    }
+}
+
 void FFT_Interface_FFTToInt(long int * const f, CC_t const * const f_fft) {
     if (!g_initialized) {
         FFT_Interface_Init(FFT_BACKEND_CPU);
@@ -105,6 +128,29 @@ void FFT_Interface_FFTToInt(long int * const f, CC_t const * const f_fft) {
         if (FFT_CUDA_FFTToInt(f, f_fft) != 0) {
             cerr << "Warning: GPU FFTToInt failed, using CPU implementation" << endl;
             MyIntReverseFFT(f, f_fft);
+        }
+    }
+}
+
+void FFT_Interface_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, unsigned int batch_count) {
+    if (!g_initialized) {
+        FFT_Interface_Init(FFT_BACKEND_CPU);
+    }
+
+    if (batch_count == 0) {
+        return;
+    }
+
+    if (g_current_backend == FFT_BACKEND_CPU) {
+        for (unsigned int i = 0; i < batch_count; ++i) {
+            MyIntReverseFFT(f + i * N0, f_fft + i * N0);
+        }
+    } else {
+        if (FFT_CUDA_FFTToInt_Batch(f, f_fft, batch_count) != 0) {
+            cerr << "Warning: GPU FFTToInt batch failed, using CPU implementation" << endl;
+            for (unsigned int i = 0; i < batch_count; ++i) {
+                MyIntReverseFFT(f + i * N0, f_fft + i * N0);
+            }
         }
     }
 }

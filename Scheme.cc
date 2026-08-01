@@ -393,6 +393,10 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     unsigned long i;
     long r[N0], e1[N0], e2[N0];
     CC_t r_FFT[N0], t_FFT[N0], aux1_FFT[N0], aux2_FFT[N0];
+    long batched_input[2*N0];
+    CC_t batched_fft[2*N0];
+    CC_t batched_aux_fft[2*N0];
+    long batched_output[2*N0];
 
     for(i=0; i<N0; i++)
     {
@@ -402,8 +406,18 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
 
     auto fft_start = chrono::high_resolution_clock::now();
-    FFT_Interface_IntToFFT(r_FFT, r);
-    FFT_Interface_IntToFFT(t_FFT, id0);
+    for(i=0; i<N0; i++)
+    {
+        batched_input[i] = r[i];
+        batched_input[i+N0] = id0[i];
+    }
+    FFT_Interface_IntToFFT_Batch(batched_fft, batched_input, 2);
+
+    for(i=0; i<N0; i++)
+    {
+        r_FFT[i] = batched_fft[i];
+        t_FFT[i] = batched_fft[i+N0];
+    }
     auto fft_end = chrono::high_resolution_clock::now();
     chrono::duration<double> fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();
@@ -416,8 +430,17 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
 
     fft_start = chrono::high_resolution_clock::now();
-    FFT_Interface_FFTToInt(C[0], aux1_FFT);
-    FFT_Interface_FFTToInt(C[1], aux2_FFT);
+    for(i=0; i<N0; i++)
+    {
+        batched_aux_fft[i] = aux1_FFT[i];
+        batched_aux_fft[i+N0] = aux2_FFT[i];
+    }
+    FFT_Interface_FFTToInt_Batch(batched_output, batched_aux_fft, 2);
+    for(i=0; i<N0; i++)
+    {
+        C[0][i] = batched_output[i];
+        C[1][i] = batched_output[i+N0];
+    }
     fft_end = chrono::high_resolution_clock::now();
     fft_elapsed = fft_end - fft_start;
     g_fft_time += fft_elapsed.count();

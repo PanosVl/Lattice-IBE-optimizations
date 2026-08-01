@@ -23,6 +23,7 @@
  * @param f Input: Integer array of size N0
  */
 void FFT_Interface_IntToFFT(CC_t * f_FFT, const long int * const f);
+void FFT_Interface_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigned int batch_count);
 
 /**
  * Convert FFT representation back to integer array
@@ -30,6 +31,7 @@ void FFT_Interface_IntToFFT(CC_t * f_FFT, const long int * const f);
  * @param f_fft Input: FFT representation (complex array of size N0)
  */
 void FFT_Interface_FFTToInt(long int * const f, CC_t const * const f_fft);
+void FFT_Interface_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, unsigned int batch_count);
 
 /**
  * Convert FFT representation to real (double) array
