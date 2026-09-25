@@ -57,7 +57,9 @@ make clean && make
 
 ## Notes
 
-- Timing uses `std::chrono::high_resolution_clock` for accurate measurements
+- Detailed timing uses the process CPU clock (`clock()` through `CpuClock`)
+- These values measure CPU time consumed by the process, not wall-clock elapsed time
+- For CUDA work, CPU timing does not capture asynchronous GPU execution; we'll have to use synchronized wall-clock timing or CUDA events for GPU elapsed time.
 - The instrumentation has minimal overhead as timers are only called at function boundaries
 - Sampling timing is measured at the innermost loop level in GPV() where Sample4() is called
 - FFT timing measures both forward and reverse FFT operations separately
