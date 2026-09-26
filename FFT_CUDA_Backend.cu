@@ -21,9 +21,12 @@ struct CUDA_State {
     cufftDoubleComplex * d_freq_batch2;
     cufftDoubleComplex * h_freq;
     cufftDoubleComplex * h_freq_batch2;
+    cudaEvent_t timing_start;
+    cudaEvent_t timing_end;
+    double last_elapsed_seconds;
 };
 
-static CUDA_State g_cuda_state = {false, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static CUDA_State g_cuda_state = {};
 
 static const unsigned int kCudaThreadsPerBlock = 256;
 
@@ -65,6 +68,30 @@ int CheckCuda(cudaError_t err) {
 
 int CheckCufft(cufftResult err) {
     return (err == CUFFT_SUCCESS) ? 0 : 1;
+}
+
+int BeginCudaTiming() {
+    g_cuda_state.last_elapsed_seconds = -1.0;
+    return CheckCuda(cudaEventRecord(g_cuda_state.timing_start, 0));
+}
+
+int EndCudaTiming() {
+    if (CheckCuda(cudaEventRecord(g_cuda_state.timing_end, 0)) != 0 ||
+        CheckCuda(cudaEventSynchronize(g_cuda_state.timing_end)) != 0) {
+        g_cuda_state.last_elapsed_seconds = -1.0;
+        return 1;
+    }
+
+    float elapsed_milliseconds = 0.0f;
+    if (CheckCuda(cudaEventElapsedTime(&elapsed_milliseconds,
+                                      g_cuda_state.timing_start,
+                                      g_cuda_state.timing_end)) != 0) {
+        g_cuda_state.last_elapsed_seconds = -1.0;
+        return 1;
+    }
+
+    g_cuda_state.last_elapsed_seconds = elapsed_milliseconds / 1000.0;
+    return 0;
 }
 
 unsigned int BlockCountForN0() {
@@ -136,6 +163,12 @@ int FFT_CUDA_Impl_Init() {
     }
 
     if (!FFT_CUDA_Impl_IsAvailable()) {
+        return 1;
+    }
+
+    if (CheckCuda(cudaEventCreate(&g_cuda_state.timing_start)) != 0 ||
+        CheckCuda(cudaEventCreate(&g_cuda_state.timing_end)) != 0) {
+        FFT_CUDA_Impl_Cleanup();
         return 1;
     }
 
@@ -245,11 +278,26 @@ void FFT_CUDA_Impl_Cleanup() {
         g_cuda_state.h_freq_batch2 = 0;
     }
 
+    if (g_cuda_state.timing_start != 0) {
+        cudaEventDestroy(g_cuda_state.timing_start);
+        g_cuda_state.timing_start = 0;
+    }
+
+    if (g_cuda_state.timing_end != 0) {
+        cudaEventDestroy(g_cuda_state.timing_end);
+        g_cuda_state.timing_end = 0;
+    }
+
+    g_cuda_state.last_elapsed_seconds = -1.0;
     g_cuda_state.initialized = false;
 }
 
 int FFT_CUDA_Impl_IntToFFT(CC_t * f_FFT, const long int * const f) {
     if (EnsureInitialized() != 0) {
+        return 1;
+    }
+
+    if (BeginCudaTiming() != 0) {
         return 1;
     }
 
@@ -269,11 +317,15 @@ int FFT_CUDA_Impl_IntToFFT(CC_t * f_FFT, const long int * const f) {
         return 1;
     }
 
-    return 0;
+    return EndCudaTiming();
 }
 
 int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
     if (EnsureInitialized() != 0) {
+        return 1;
+    }
+
+    if (BeginCudaTiming() != 0) {
         return 1;
     }
 
@@ -304,11 +356,15 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
         f[i] = (long int)llround(g_cuda_state.h_freq[i].x);
     }
 
-    return 0;
+    return EndCudaTiming();
 }
 
 int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
     if (EnsureInitialized() != 0) {
+        return 1;
+    }
+
+    if (BeginCudaTiming() != 0) {
         return 1;
     }
 
@@ -339,7 +395,7 @@ int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
         f[i] = g_cuda_state.h_freq[i].x;
     }
 
-    return 0;
+    return EndCudaTiming();
 }
 
 int FFT_CUDA_Impl_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigned int batch_count) {
@@ -357,6 +413,9 @@ int FFT_CUDA_Impl_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigne
 
     if (batch_count == 2) {
         unsigned int total = 2 * N0;
+        if (BeginCudaTiming() != 0) {
+            return 1;
+        }
         if (CheckCuda(cudaMemcpy(g_cuda_state.d_input_int_batch2, f, sizeof(long int) * total, cudaMemcpyHostToDevice)) != 0) {
             return 1;
         }
@@ -377,7 +436,7 @@ int FFT_CUDA_Impl_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigne
         for (unsigned int i = 0; i < total; ++i) {
             f_FFT[i] = CC_t((RR_t)g_cuda_state.h_freq_batch2[i].x, (RR_t)g_cuda_state.h_freq_batch2[i].y);
         }
-        return 0;
+        return EndCudaTiming();
     }
 
     for (unsigned int i = 0; i < batch_count; ++i) {
@@ -403,6 +462,9 @@ int FFT_CUDA_Impl_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, u
 
     if (batch_count == 2) {
         unsigned int total = 2 * N0;
+        if (BeginCudaTiming() != 0) {
+            return 1;
+        }
         for (unsigned int i = 0; i < total; ++i) {
             g_cuda_state.h_freq_batch2[i].x = (double)real(f_fft[i]);
             g_cuda_state.h_freq_batch2[i].y = (double)imag(f_fft[i]);
@@ -429,7 +491,7 @@ int FFT_CUDA_Impl_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, u
         for (unsigned int i = 0; i < total; ++i) {
             f[i] = (long int)llround(g_cuda_state.h_freq_batch2[i].x);
         }
-        return 0;
+        return EndCudaTiming();
     }
 
     for (unsigned int i = 0; i < batch_count; ++i) {
@@ -438,6 +500,10 @@ int FFT_CUDA_Impl_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, u
         }
     }
     return 0;
+}
+
+double FFT_CUDA_Impl_GetLastElapsedSeconds() {
+    return g_cuda_state.last_elapsed_seconds;
 }
 
 #endif

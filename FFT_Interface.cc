@@ -74,6 +74,13 @@ void FFT_Interface_EndBatch() {
     // For GPU backend, this would synchronize streams
 }
 
+    double FFT_Interface_GetLastGPUTimeSeconds() {
+        if (g_current_backend != FFT_BACKEND_GPU) {
+            return -1.0;
+        }
+        return FFT_CUDA_GetLastElapsedSeconds();
+    }
+
 // ============================================================================
 // FFT operations - CPU backend implementation
 // ============================================================================

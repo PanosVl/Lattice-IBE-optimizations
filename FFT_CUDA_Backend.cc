@@ -10,6 +10,7 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft);
 int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft);
 int FFT_CUDA_Impl_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigned int batch_count);
 int FFT_CUDA_Impl_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, unsigned int batch_count);
+double FFT_CUDA_Impl_GetLastElapsedSeconds();
 
 int FFT_CUDA_Init() {
     return FFT_CUDA_Impl_Init();
@@ -41,6 +42,10 @@ int FFT_CUDA_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigned int
 
 int FFT_CUDA_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, unsigned int batch_count) {
     return FFT_CUDA_Impl_FFTToInt_Batch(f, f_fft, batch_count);
+}
+
+double FFT_CUDA_GetLastElapsedSeconds() {
+    return FFT_CUDA_Impl_GetLastElapsedSeconds();
 }
 
 #else
@@ -86,6 +91,10 @@ int FFT_CUDA_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, unsign
     (void)f_fft;
     (void)batch_count;
     return 1;
+}
+
+double FFT_CUDA_GetLastElapsedSeconds() {
+    return -1.0;
 }
 
 #endif

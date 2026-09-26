@@ -102,5 +102,7 @@ void FFT_Interface_BeginBatch();
  */
 void FFT_Interface_EndBatch();
 
+double FFT_Interface_GetLastGPUTimeSeconds();
+
 
 #endif // LIBE_FFT_INTERFACE_H

@@ -59,8 +59,10 @@ make clean && make
 
 - Detailed timing uses the process CPU clock (`clock()` through `CpuClock`)
 - These values measure CPU time consumed by the process, not wall-clock elapsed time
-- For CUDA work, CPU timing does not capture asynchronous GPU execution; we'll have to use synchronized wall-clock timing or CUDA events for GPU elapsed time.
+- For CUDA work, the report records CUDA-event elapsed time separately as `GPU FFT`; this includes transfers, conversion kernels, cuFFT, scaling, and output copies.
+- `GPU FFT` timing requires a CUDA build (`make clean && make USE_CUDA=1 USE_KELVIN2=1`).
 - The instrumentation has minimal overhead as timers are only called at function boundaries
 - Sampling timing is measured at the innermost loop level in GPV() where Sample4() is called
 - FFT timing measures both forward and reverse FFT operations separately
+- CPU FFT timing and GPU FFT timing are reported separately and must not be combined into one percentage.
 - The printed percentage breakdown is phase-local for nested timers, so the detailed sections are meant to be read within their own parent phase rather than summed across the whole report

@@ -41,6 +41,7 @@ static double g_extract_time = 0.0;
 static double g_encrypt_time = 0.0;
 static double g_decrypt_time = 0.0;
 static double g_fft_time = 0.0;
+static double g_gpu_fft_time = 0.0;
 static double g_sampling_time = 0.0;
 static double g_basis_gen_time = 0.0;
 static double g_quotient_time = 0.0;
@@ -51,11 +52,25 @@ static long long g_extract_count = 0;
 static long long g_encrypt_count = 0;
 static long long g_decrypt_count = 0;
 static long long g_fft_count = 0;
+static long long g_gpu_fft_count = 0;
 static long long g_sampling_count = 0;
 static long long g_basis_gen_count = 0;
 static long long g_quotient_count = 0;
 static long long g_gpv_overhead_count = 0;
 static long long g_modarith_count = 0;
+
+static void record_fft_timing(const chrono::duration<double>& cpu_elapsed,
+                              long long transform_count)
+{
+    g_fft_time += cpu_elapsed.count();
+    g_fft_count += transform_count;
+
+    double gpu_elapsed = FFT_Interface_GetLastGPUTimeSeconds();
+    if (gpu_elapsed >= 0.0) {
+        g_gpu_fft_time += gpu_elapsed;
+        g_gpu_fft_count += transform_count;
+    }
+}
 
 void print_timing_stats() {
     cout << "\n=== IBE Performance Statistics ===" << endl;
@@ -125,6 +140,11 @@ void print_timing_stats() {
           cout << "    FFT:         " << g_fft_time << "s (" << g_fft_count << " calls, " 
               << (g_fft_time / crypto_time) * 100.0 << "% of encrypt+decrypt, "
               << (g_fft_time / total_time) * 100.0 << "% of total)" << endl;
+          if (g_gpu_fft_count > 0) {
+              cout << "    GPU FFT:     " << g_gpu_fft_time << "s (" << g_gpu_fft_count
+                  << " transforms, avg: " << (g_gpu_fft_time / g_gpu_fft_count * 1000.0)
+                  << "ms per transform)" << endl;
+          }
           cout << "    Mod Arith:   " << g_modarith_time << "s (" << g_modarith_count << " calls, " 
               << (g_modarith_time / crypto_time) * 100.0 << "% of encrypt+decrypt, "
               << (g_modarith_time / total_time) * 100.0 << "% of total)" << endl;
@@ -142,6 +162,7 @@ void reset_timing_stats() {
     g_encrypt_time = 0.0;
     g_decrypt_time = 0.0;
     g_fft_time = 0.0;
+    g_gpu_fft_time = 0.0;
     g_sampling_time = 0.0;
     g_basis_gen_time = 0.0;
     g_quotient_time = 0.0;
@@ -152,6 +173,7 @@ void reset_timing_stats() {
     g_encrypt_count = 0;
     g_decrypt_count = 0;
     g_fft_count = 0;
+    g_gpu_fft_count = 0;
     g_sampling_count = 0;
     g_basis_gen_count = 0;
     g_quotient_count = 0;
@@ -434,8 +456,7 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
     auto fft_end = CpuClock::now();
     chrono::duration<double> fft_elapsed = fft_end - fft_start;
-    g_fft_time += fft_elapsed.count();
-    g_fft_count += 2;
+    record_fft_timing(fft_elapsed, 2);
 
     for(i=0; i<N0; i++)
     {
@@ -457,8 +478,7 @@ void IBE_Encrypt(long C[2][N0], const long m[N0], const long id0[N0], const MPK_
     }
     fft_end = CpuClock::now();
     fft_elapsed = fft_end - fft_start;
-    g_fft_time += fft_elapsed.count();
-    g_fft_count += 2;
+    record_fft_timing(fft_elapsed, 2);
 
     auto modarith_start = CpuClock::now();
     for(i=0; i<N0; i++)
@@ -489,8 +509,7 @@ void IBE_Decrypt(long message[N0], const long C[2][N0], const CC_t * const SKid_
     FFT_Interface_IntToFFT(c0_FFT, C[0]);
     auto fft_end = CpuClock::now();
     chrono::duration<double> fft_elapsed = fft_end - fft_start;
-    g_fft_time += fft_elapsed.count();
-    g_fft_count++;
+    record_fft_timing(fft_elapsed, 1);
 
     for(i=0; i<N0; i++)
     {
@@ -501,8 +520,7 @@ void IBE_Decrypt(long message[N0], const long C[2][N0], const CC_t * const SKid_
     FFT_Interface_FFTToInt(message, aux_FFT);
     fft_end = CpuClock::now();
     fft_elapsed = fft_end - fft_start;
-    g_fft_time += fft_elapsed.count();
-    g_fft_count++;
+    record_fft_timing(fft_elapsed, 1);
 
     auto modarith_start = CpuClock::now();
     for(i=0; i<N0; i++)
