@@ -60,6 +60,7 @@ knowledge of the CeCILL license and that you accept its terms.
 #include "Random.h"
 #include "Algebra.h"
 #include "Scheme.h"
+#include "FFT_Interface.h"
 
 
 using namespace std;
@@ -77,6 +78,16 @@ using namespace NTL;
 
 int main()
 {
+    FFT_Backend_Type requested_backend = FFT_BACKEND_CPU;
+#ifdef USE_CUDA
+    requested_backend = FFT_BACKEND_GPU;
+#endif
+    int backend_status = FFT_Interface_Init(requested_backend);
+    if (requested_backend == FFT_BACKEND_GPU && backend_status != 0) {
+        cerr << "GPU backend initialization failed" << endl;
+        return 1;
+    }
+
     cout << "\n=======================================================================\n";
     cout << "This program is a proof-of concept for efficient IBE over lattices.\n";
     cout << "It generates a NTRU lattice of dimension 2N and associated modulus q,\n";
@@ -96,6 +107,9 @@ int main()
 
     cout << "N = " << N0 << endl;
     cout << "q = " << q0 << endl;
+        cout << "FFT backend: "
+            << (FFT_Interface_GetBackend() == FFT_BACKEND_GPU ? "GPU" : "CPU")
+            << endl;
 
     ZZ_p::init(q1);
     zz_p::init(q0);
@@ -156,5 +170,6 @@ int main()
 
     free(MSKD);
     free(MPKD);
+    FFT_Interface_Cleanup();
     return 0;
 }
