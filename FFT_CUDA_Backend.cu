@@ -26,36 +26,51 @@ struct CUDA_State {
 static CUDA_State g_cuda_state = {false, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static const unsigned int kCudaThreadsPerBlock = 256;
+static const double kPi = 3.141592653589793238462643383279502884;
 
 __global__ void KernelIntToComplex(cufftDoubleComplex * out, const long int * in) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < N0) {
-        out[idx].x = (double)in[idx];
-        out[idx].y = 0.0;
+        double angle = kPi * (double)idx / (double)N0;
+        out[idx].x = (double)in[idx] * cos(angle);
+        out[idx].y = (double)in[idx] * sin(angle);
     }
 }
 
 __global__ void KernelScaleInverse(cufftDoubleComplex * data, double scale) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < N0) {
-        data[idx].x *= scale;
-        data[idx].y *= scale;
+        double angle = -kPi * (double)idx / (double)N0;
+        double sine = sin(angle);
+        double cosine = cos(angle);
+        double real_value = data[idx].x;
+        double imaginary_value = data[idx].y;
+        data[idx].x = scale * (real_value * cosine - imaginary_value * sine);
+        data[idx].y = scale * (real_value * sine + imaginary_value * cosine);
     }
 }
 
 __global__ void KernelScaleInverseN(cufftDoubleComplex * data, double scale, unsigned int n_total) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n_total) {
-        data[idx].x *= scale;
-        data[idx].y *= scale;
+        unsigned int sample = idx % N0;
+        double angle = -kPi * (double)sample / (double)N0;
+        double sine = sin(angle);
+        double cosine = cos(angle);
+        double real_value = data[idx].x;
+        double imaginary_value = data[idx].y;
+        data[idx].x = scale * (real_value * cosine - imaginary_value * sine);
+        data[idx].y = scale * (real_value * sine + imaginary_value * cosine);
     }
 }
 
 __global__ void KernelIntToComplexN(cufftDoubleComplex * out, const long int * in, unsigned int n_total) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n_total) {
-        out[idx].x = (double)in[idx];
-        out[idx].y = 0.0;
+        unsigned int sample = idx % N0;
+        double angle = kPi * (double)sample / (double)N0;
+        out[idx].x = (double)in[idx] * cos(angle);
+        out[idx].y = (double)in[idx] * sin(angle);
     }
 }
 
@@ -85,7 +100,7 @@ int ConvertDeviceIntsToComplex() {
 }
 
 int ExecuteForwardFFT() {
-    return CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_FORWARD));
+    return CheckCufft(cufftExecZ2Z(g_cuda_state.inverse_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_INVERSE));
 }
 
 int CopyFreqToHost(CC_t * const f_FFT) {
@@ -286,7 +301,7 @@ int FFT_CUDA_Impl_FFTToInt(long int * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    if (CheckCufft(cufftExecZ2Z(g_cuda_state.inverse_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_INVERSE)) != 0) {
+    if (CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_FORWARD)) != 0) {
         return 1;
     }
 
@@ -321,7 +336,7 @@ int FFT_CUDA_Impl_FFTToReal(double * const f, CC_t const * const f_fft) {
         return 1;
     }
 
-    if (CheckCufft(cufftExecZ2Z(g_cuda_state.inverse_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_INVERSE)) != 0) {
+    if (CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan, g_cuda_state.d_freq, g_cuda_state.d_freq, CUFFT_FORWARD)) != 0) {
         return 1;
     }
 
@@ -366,7 +381,7 @@ int FFT_CUDA_Impl_IntToFFT_Batch(CC_t * f_FFT, const long int * const f, unsigne
             return 1;
         }
 
-        if (CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan_batch2, g_cuda_state.d_freq_batch2, g_cuda_state.d_freq_batch2, CUFFT_FORWARD)) != 0) {
+        if (CheckCufft(cufftExecZ2Z(g_cuda_state.inverse_plan_batch2, g_cuda_state.d_freq_batch2, g_cuda_state.d_freq_batch2, CUFFT_INVERSE)) != 0) {
             return 1;
         }
 
@@ -412,7 +427,7 @@ int FFT_CUDA_Impl_FFTToInt_Batch(long int * const f, CC_t const * const f_fft, u
             return 1;
         }
 
-        if (CheckCufft(cufftExecZ2Z(g_cuda_state.inverse_plan_batch2, g_cuda_state.d_freq_batch2, g_cuda_state.d_freq_batch2, CUFFT_INVERSE)) != 0) {
+        if (CheckCufft(cufftExecZ2Z(g_cuda_state.forward_plan_batch2, g_cuda_state.d_freq_batch2, g_cuda_state.d_freq_batch2, CUFFT_FORWARD)) != 0) {
             return 1;
         }
 
